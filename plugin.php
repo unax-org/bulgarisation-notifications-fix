@@ -3,7 +3,7 @@
  * Plugin Name: Bulgarisation Notifications Fix
  * Description: A plugin fixes notifications for card payments with callbacks.
  * Version: 1.0.0
- * Requires Plugins: woocommerce, bulgarisation-for-woocommerce, mypos-virtual-for-woocommerce
+ * Requires Plugins: woocommerce, bulgarisation-for-woocommerce
  * Requires at least: 4.7
  * Requires PHP: 7.2
  * Author: Unax
@@ -28,6 +28,7 @@ const PLUGIN_VERSION = '1.0.0';
 const PLUGIN_FILE = __FILE__;
 
 require __DIR__ . '/inc/namespace.php';
+
 
 /**
  * Load the textdomain.

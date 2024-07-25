@@ -8,7 +8,6 @@
 
 namespace Unax\BNF\Inc;
 
-use Unax\BNF;
 use Unax\BNF\Inc\WooCommerce;
 
 /**
@@ -18,6 +17,8 @@ use Unax\BNF\Inc\WooCommerce;
  */
 function bootstrap() {
 	require __DIR__ . '/woocommerce/namespace.php';
+
+	// add_action( 'woocommerce_after_register_post_type', __NAMESPACE__ . '\\init' );
 
 	WooCommerce\bootstrap();
 }
@@ -29,7 +30,7 @@ function bootstrap() {
  * @return void
  */
 function init() {
-
+	\Woo_BG\Admin\Order\Documents::generate_documents( 2203 );
 }
 
 
@@ -55,4 +56,4 @@ function enqueue_scripts() {}
  *
  * @return void
  */
-function bnf_deactivate() {}
+function deactivate() {}
