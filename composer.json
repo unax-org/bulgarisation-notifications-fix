@@ -1,0 +1,23 @@
+{
+    "name": "unax/bulgarisation-notifications-fix",
+    "minimum-stability": "stable",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Unax",
+            "email": "contact@unax.org",
+            "homepage": "https://unax.org",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "support@unax.org"
+    },
+    "repositories":[
+        {
+            "type":"composer",
+            "url":"https://wpackagist.org",
+            "only": ["wpackagist-plugin/*", "wpackagist-theme/*"]
+        }
+    ]
+}
