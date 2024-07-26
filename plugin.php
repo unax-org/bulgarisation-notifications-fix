@@ -23,9 +23,12 @@
 
 namespace Unax\BNF;
 
-const PLUGIN_NAME = 'Bulgarisation Notifications Fix';
-const PLUGIN_VERSION = '1.0.0';
-const PLUGIN_FILE = __FILE__;
+const PLUGIN_NAME           = 'Bulgarisation Notifications Fix';
+const PLUGIN_VERSION        = '1.0.0';
+const PLUGIN_FILE           = __FILE__;
+const CARD_PAYMENT_GATEWAYS = array(
+    'mypos_virtual'
+);
 
 require __DIR__ . '/inc/namespace.php';
 

@@ -11,6 +11,11 @@ namespace Unax\BNF\Inc\WooCommerce;
 use Unax\BNF;
 use Automattic\WooCommerce\Utilities\FeaturesUtil;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+
 /**
  * Hook everything.
  *
@@ -18,7 +23,6 @@ use Automattic\WooCommerce\Utilities\FeaturesUtil;
  */
 function bootstrap() {
 	add_action( 'before_woocommerce_init', __NAMESPACE__ . '\\declare_wc_compatibility' );
-
 	add_action( 'init', __NAMESPACE__ . '\\fix_notifications' );
 }
 
@@ -36,13 +40,21 @@ function declare_wc_compatibility() {
 
 
 /**
+ * Get cart payment gateways.
+ *
+ * @return array
+ */
+function get_card_payment_gateways() {
+	return apply_filters( 'bnf_card_payment_gateways', BNF\CARD_PAYMENT_GATEWAYS );
+}
+
+
+/**
  * Fix WooCommerce notifications for card payments to include document with transaction id.
  *
  * @return void
  */
 function fix_notifications() {
-	require_once plugin_dir_path( BNF\PLUGIN_FILE ) . 'config.php';
-
 	if ( ! class_exists( '\Woo_BG\Admin\Order\Documents' ) || ! class_exists( '\Woo_BG\Admin\Order\Emails' ) ) {
 		$logger = wc_get_logger();
 
@@ -77,18 +89,51 @@ function fix_notifications() {
 		include $wc_emails_path . 'class-wc-email-customer-processing-order.php';
 	}
 
-	remove_action( 'woocommerce_order_status_pending_to_processing_notification', array( 'WC_Email_Customer_Processing_Order', 'trigger' ), 10 );
+	// Disable email for card payments.
+	add_filter( 'woocommerce_email_enabled_customer_processing_order', __NAMESPACE__ . '\\email_enabled_customer_processing_order', 10, 4 );
+	
+	// Move document generation to the end of the order processing for card payments.
 	remove_action( 'woocommerce_checkout_order_processed', array( '\Woo_BG\Admin\Order\Documents', 'generate_documents' ), 100 );
+	add_action( 'woocommerce_checkout_order_processed', __NAMESPACE__ . '\\checkout_order_processed', 100, 3 );
 
-	add_action( 'woocommerce_checkout_order_processed', __NAMESPACE__ . '\\order_processed', 100, 3 );
-	foreach ( $bnf_config['card-payment-gateways'] as $gateway_id ) {
-		add_action( 'woocommerce_thankyou_' . $gateway_id, __NAMESPACE__ . '\\woocommerce_thankyou' );
-	}
+	// Generate documents and send customer notification after payment complete.
+	add_action( 'woocommerce_payment_complete', __NAMESPACE__ . '\\payment_complete' );
 }
 
 
 /**
- * Display field value on the order edit page
+ * Disable email for card payments.
+ * 
+ * @param bool 								 $enabled 	   Is email enabled
+ * @param int 								 $order_id 	   Order ID
+ * @param WC_Email_Customer_Processing_Order $email_object Email object
+ * 
+ * @return bool
+ */
+function email_enabled_customer_processing_order( $enabled, $order, $email_object ) {
+	$logger = wc_get_logger();
+	$logger->debug( 
+		'Filter enabled email for customer processing order', 
+		array( 
+			'order_id' => $order->get_id(), 
+			'payment_method' => $order->get_payment_method(), 
+			'order_status' => $order->get_status(), 
+			'transaction_id'=> $order->get_transaction_id(),
+			'source' => 'bulgarisation-notifications-fix',
+		) 
+	);
+
+	// If is card payment return. Currently only mypos_virtual but can be extended.
+	if ( in_array( $order->get_payment_method(), get_card_payment_gateways() ) ) {
+		$enabled = false;
+	}
+
+	return $enabled;
+}
+
+
+/**
+ * Skip generating documents for card payments.
  * 
  * @param int      $order_id          Order ID.
  * @param array    $posted_data       Posted data.
@@ -96,71 +141,56 @@ function fix_notifications() {
  * 
  * @return void
  */
-function order_processed( $order_id, $posted_data, $order ) {
-	require_once plugin_dir_path( BNF\PLUGIN_FILE ) . 'config.php';
-
-	$logger = wc_get_logger();
+function checkout_order_processed( $order_id, $posted_data, $order ) {
 	$order = wc_get_order( $order_id );
 
-	$logger->info( 
+	$logger = wc_get_logger();
+	$logger->debug( 
 		'Order processed', 
 		array( 
 			'order_id' => $order_id, 
+			'payment_method' => $order->get_payment_method(), 
 			'order_status' => $order->get_status(), 
 			'transaction_id'=> $order->get_transaction_id(),
 			'source' => 'bulgarisation-notifications-fix',
 		) 
 	);	
 
-	// If is card payment return. Currently only mypos_virtual but can be extended.
-	if ( in_array( $order->get_payment_method(), $bnf_config['card-payment-gateways'] ) ) {
+	// If is card payment skip generating documents.
+	if ( in_array( $order->get_payment_method(), get_card_payment_gateways() ) ) {
 		return;
-	}        
+	}
 
-	checkout_order_processed_notification( $order_id );
+	\Woo_BG\Admin\Order\Documents::generate_documents( $order_id );
 }
 
 
 /**
- * Display field value on the order edit page
+ * Generatie documents and send email to the customer afer payment complete.
  * 
  * @param int $order_id Order ID
- * @param array $posted_data Posted data
- * @param WC_Order $order Order object
  * 
  * @return void
  */
-function woocommerce_thankyou( $order_id ) {
-	$logger = wc_get_logger();
+function payment_complete( $order_id ) {
 	$order = wc_get_order( $order_id );
 
-	$logger->info( 
-		'Order payment complete', 
+	$logger = wc_get_logger();
+	$logger->debug( 
+		'Woocommerce thankyou page', 
 		array( 
 			'order_id' => $order_id, 
+			'payment_method' => $order->get_payment_method(),
 			'order_status' => $order->get_status(), 
 			'transaction_id'=> $order->get_transaction_id(),
 			'source' => 'bulgarisation-notifications-fix',
 		) 
-	);	
+	);
 
-	checkout_order_processed_notification( $order_id );
-}
-
-
-/**
- * Display field value on the order edit page
- * 
- * @param int $order_id Order ID
- * @param array $posted_data Posted data
- * @param WC_Order $order Order object
- * 
- * @return void
- */
-function checkout_order_processed_notification( $order_id ) {
 	\Woo_BG\Admin\Order\Documents::generate_documents( $order_id );
-	
+
 	add_filter( 'woocommerce_email_attachments', array( '\Woo_BG\Admin\Order\Emails', 'attach_invoice_to_mail' ), 10, 4 );
+	add_filter( 'woocommerce_email_enabled_customer_processing_order', '__return_true', 20 );
 
 	$WC_Email_Customer_Processing_Order = new \WC_Email_Customer_Processing_Order();
 	$WC_Email_Customer_Processing_Order->trigger( $order_id );
