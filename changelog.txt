@@ -1,4 +1,4 @@
 *** Bulgarisation Notifications Fix Changelog ***
 
-2024-07-25 - version 1.0.0
+2024-07-26 - version 1.0.0
 * Initial release
