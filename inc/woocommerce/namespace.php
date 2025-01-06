@@ -104,14 +104,25 @@ function fix_notifications() {
 /**
  * Disable email for card payments.
  * 
- * @param bool 								 $enabled 	   Is email enabled
- * @param int 								 $order_id 	   Order ID
- * @param WC_Email_Customer_Processing_Order $email_object Email object
+ * @param bool 								  $enabled 	   Is email enabled
+ * @param \WC_Order 						  $order 	   Order
+ * @param \WC_Email_Customer_Processing_Order $email_object Email object
  * 
  * @return bool
  */
 function email_enabled_customer_processing_order( $enabled, $order, $email_object ) {
 	$logger = wc_get_logger();
+	if ( ! $order instanceof \WC_Order ) {
+		$logger->error( 
+			'Missing order in filter enabled email for customer processing order', 
+			array( 
+				'source' => 'bulgarisation-notifications-fix',
+			) 
+		);
+
+		return $enabled;
+	}
+
 	$logger->debug( 
 		'Filter enabled email for customer processing order', 
 		array( 
